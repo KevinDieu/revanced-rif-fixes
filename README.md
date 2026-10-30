@@ -1,12 +1,13 @@
 # revanced-rif-fixes
 
-A small [ReVanced](https://revanced.app) patch bundle for **rif is fun 5.6.22**, the last release of the
-discontinued Reddit client: both the free app (`com.andrewshu.android.reddit`) and **rif is fun golden platinum**
-(`com.andrewshu.android.redditdonation`). The same bundle and link work for both.
+A small patch bundle for **rif is fun 5.6.22**, for use with [Morphe](https://morphe.software). rif 5.6.22 is the
+last release of the discontinued Reddit client, and the bundle covers both the free app
+(`com.andrewshu.android.reddit`) and **rif is fun golden platinum** (`com.andrewshu.android.redditdonation`). The
+same bundle works for both.
 
-It fixes things that broke after rif was abandoned and that the other rif patches don't cover. Use it
-**alongside** the official ReVanced bundle's **Spoof client** patch and
-[MojiRS's rif patches](https://github.com/MojiRS/revanced-rif-patches).
+It fixes things that broke after rif was abandoned and that other rif patches don't cover. Use it **alongside**
+the rif patches built into Morphe (such as **Spoof client**). This is a Morphe port of
+[notBrian2's ReVanced bundle](https://github.com/notBrian2/revanced-rif-fixes).
 
 ## Patches
 
@@ -18,40 +19,35 @@ It fixes things that broke after rif was abandoned and that the other rif patche
 | **Fix imgur album thumbnails** | Thumbnails for imgur albums: rif fetched them through its own server, which is gone. rif now asks imgur directly, with the key rif already sends. |
 | **Fix imgur title links** | Album links with the title in them (`imgur.com/a/some-title-AbC123`) fail to load. rif now uses only the album id. |
 
-Only version 5.6.22 is supported (free or golden platinum). For the free app, MojiRS's bundle also has a
-**Disable ads** patch.
+Only version 5.6.22 is supported (free or golden platinum).
 
-## Use with ReVanced Manager
+## Use with Morphe Manager
 
 You need your own copy of rif is fun 5.6.22 (free or golden platinum). This project doesn't provide APKs.
 
-1. Open ReVanced Manager, go to **Patches**, tap the **pencil icon** (bottom right), then **Add patches** →
-   **Enter URL**, and paste:
+1. Tap the button below on your phone, or add this repo as a patch source in Morphe Manager:
 
    ```
-   https://raw.githubusercontent.com/notBrian2/revanced-rif-fixes/main/bundles/stable.json
+   https://github.com/KevinDieu/revanced-rif-fixes
    ```
 
-   It always points at the newest release, so Manager keeps the bundle up to date. (Manager needs this JSON
-   link; a link to the `.rvp` itself doesn't work. You can also download `patches.rvp` from
-   [Releases](../../releases) and add it as a local file.)
-2. Do the same for [MojiRS's rif patches](https://github.com/MojiRS/revanced-rif-patches):
+   <a href="https://morphe.software/add-source?github=KevinDieu/revanced-rif-fixes">
+     <img src=".github/assets/add-to-morphe.svg" alt="Add to Morphe" height="48">
+   </a>
 
-   ```
-   https://raw.githubusercontent.com/MojiRS/revanced-rif-patches/main/bundles/stable.json
-   ```
-
-   The official ReVanced patches (for **Spoof client**) come with Manager already.
-3. Patch your **original, unpatched** rif 5.6.22 APK, free or golden platinum (pick it from storage, not an
-   already-patched install), selecting **Spoof client**, the patches you want from MojiRS's bundle, and the
-   patches from this one.
-4. Install. If your current rif was patched by the same Manager, it updates in place and keeps your login.
+   Manager reads [`patches-bundle.json`](patches-bundle.json), which always points at the newest release, so
+   it keeps the bundle up to date. (You can also download `patches-<version>.mpp` from
+   [Releases](https://github.com/KevinDieu/revanced-rif-fixes/releases) and add it as a local file.)
+2. Patch your **original, unpatched** rif 5.6.22 APK, free or golden platinum (pick it from storage, not an
+   already-patched install), selecting Morphe's built-in rif patches (including **Spoof client**) and the
+   patches from this bundle.
+3. Install. If your current rif was patched by the same Manager, it updates in place and keeps your login.
 
 If a patch reports that it couldn't find what it expected, the input APK isn't an untouched rif is fun 5.6.22. Every patch checks the code it changes and stops instead of patching the wrong place.
 
 ## Building from source
 
-Requires JDK 17, the Android SDK, and a GitHub token with `read:packages` scope (ReVanced publishes its
+Requires JDK 21, the Android SDK, and a GitHub token with `read:packages` scope (Morphe publishes its
 Gradle plugin and patcher to GitHub Packages). Either put credentials in `~/.gradle/gradle.properties`:
 
 ```properties
@@ -66,14 +62,15 @@ or pass them as environment variables (`GITHUB_ACTOR`, `GITHUB_TOKEN`,
 
 ```bash
 ./gradlew buildAndroid
-# output: patches/build/libs/patches-<version>.rvp
+# output: patches/build/libs/patches-<version>.mpp
 ```
 
-`buildAndroid` is required: plain `./gradlew build` makes a bundle the desktop CLI can load but ReVanced
+`buildAndroid` is required: plain `./gradlew build` makes a bundle the desktop CLI can load but Morphe
 Manager can't.
 
-After publishing a release (asset named `patches.rvp`), run `python scripts/update_bundle_json.py` and commit
-the updated `bundles/*.json`, which the Manager link above points at.
+To release, bump `version` in `gradle.properties` and push a matching tag (`v2.0.0` for `version = 2.0.0`).
+The Build workflow then publishes the release with its `.mpp` and points `patches-bundle.json` on `main` at it.
+Every other push is just built, to check it compiles.
 
 Notes:
 - The patch code lives in `app.revanced.patches.riffixes` and the extension in `extensions/riffixes`, so
@@ -85,7 +82,7 @@ Notes:
 
 ## Disclaimer
 
-Not affiliated with or endorsed by Andrew Shu, rif is fun, Reddit, imgur, Redgifs or ReVanced. This
+Not affiliated with or endorsed by Andrew Shu, rif is fun, Reddit, imgur, Redgifs, ReVanced or Morphe. This
 repository contains only original patch code: no APKs, no code from rif. You are responsible for using your
 own legally obtained copy of the app and for following the terms of the services it connects to. Use at your
 own risk.

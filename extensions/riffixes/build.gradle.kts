@@ -1,5 +1,5 @@
 extension {
-    name = "extensions/riffixes.rve"
+    name = "extensions/riffixes.mpe"
 }
 
 android {

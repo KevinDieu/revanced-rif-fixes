@@ -1,13 +1,16 @@
 package app.revanced.patches.riffixes.shared
 
-import app.revanced.patcher.extensions.ExternalLabel
-import app.revanced.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
-import app.revanced.patcher.extensions.InstructionExtensions.instructions
-import app.revanced.patcher.fingerprint
-import app.revanced.patcher.patch.BytecodePatchContext
-import app.revanced.patcher.patch.PatchException
-import app.revanced.patcher.patch.bytecodePatch
-import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
+import app.morphe.patcher.Fingerprint
+import app.morphe.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
+import app.morphe.patcher.extensions.InstructionExtensions.instructions
+import app.morphe.patcher.patch.ApkFileType
+import app.morphe.patcher.patch.AppTarget
+import app.morphe.patcher.patch.BytecodePatchContext
+import app.morphe.patcher.patch.Compatibility
+import app.morphe.patcher.patch.PatchException
+import app.morphe.patcher.patch.bytecodePatch
+import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
+import app.morphe.patcher.util.smali.ExternalLabel
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 
@@ -21,8 +24,20 @@ internal const val RIF_PLATINUM_PACKAGE = "com.andrewshu.android.redditdonation"
 internal const val RIF_VERSION = "5.6.22"
 
 internal val RIF_COMPATIBILITY = arrayOf(
-    RIF_FREE_PACKAGE to setOf(RIF_VERSION),
-    RIF_PLATINUM_PACKAGE to setOf(RIF_VERSION),
+    Compatibility(
+        packageName = RIF_FREE_PACKAGE,
+        name = "rif is fun",
+        apkFileType = ApkFileType.APK,
+        appIconColor = 0xFF4500,
+        targets = listOf(AppTarget(version = RIF_VERSION)),
+    ),
+    Compatibility(
+        packageName = RIF_PLATINUM_PACKAGE,
+        name = "rif is fun golden platinum",
+        apkFileType = ApkFileType.APK,
+        appIconColor = 0xFF4500,
+        targets = listOf(AppTarget(version = RIF_VERSION)),
+    ),
 )
 
 /**
@@ -81,13 +96,11 @@ internal const val THINGS = "Lcom/andrewshu/android/reddit/things/objects"
 /** The symbol set of the app being patched, told apart by the "load more comments" task's constructor. */
 internal fun BytecodePatchContext.rifSymbols(): RifSymbols {
     val matching = RIF_BUILDS.filter { symbols ->
-        classes.any { classDef ->
-            classDef.type == symbols.moreTask && classDef.methods.any { method ->
-                method.name == "<init>" && method.parameterTypes.map { it.toString() } == listOf(
-                    "Landroid/app/Activity;", "$THINGS/CommentThing;", "$THINGS/ThreadThing;", symbols.sort,
-                )
-            }
-        }
+        classDefByOrNull(symbols.moreTask)?.methods?.any { method ->
+            method.name == "<init>" && method.parameterTypes.map { it.toString() } == listOf(
+                "Landroid/app/Activity;", "$THINGS/CommentThing;", "$THINGS/ThreadThing;", symbols.sort,
+            )
+        } == true
     }
     return matching.singleOrNull()
         ?: throw PatchException("Not rif is fun 5.6.22 (free or golden platinum): matched ${matching.size} builds")
@@ -100,15 +113,15 @@ internal fun BytecodePatchContext.method(
     parameters: List<String>,
     returnType: String,
 ): MutableMethod {
-    val classDef = classes.firstOrNull { it.type == type } ?: throw PatchException("$type not found")
-    return proxy(classDef).mutableClass.methods.firstOrNull { method ->
+    val classDef = mutableClassDefByOrNull(type) ?: throw PatchException("$type not found")
+    return classDef.methods.firstOrNull { method ->
         method.name == name &&
             method.returnType == returnType &&
             method.parameterTypes.map { it.toString() } == parameters
     } ?: throw PatchException("$type->$name(${parameters.joinToString("")})$returnType not found")
 }
 
-internal const val EXTENSION = "extensions/riffixes.rve"
+internal const val EXTENSION = "extensions/riffixes.mpe"
 internal const val EXTENSION_PACKAGE = "Lapp/revanced/extension/riffixes"
 
 internal const val STRING = "Ljava/lang/String;"
@@ -118,14 +131,15 @@ internal const val REQUEST_BUILDER = "Lokhttp3/c0\$a;"
 
 /** A method found by its class and exact signature (OkHttp's request builder has the same names in both builds). */
 internal fun methodFingerprint(type: String, name: String, parameters: List<String>, returnType: String) =
-    fingerprint {
-        custom { method, classDef ->
+    Fingerprint(
+        definingClass = type,
+        name = name,
+        custom = { method, classDef ->
             classDef.type == type &&
-                method.name == name &&
                 method.returnType == returnType &&
                 method.parameterTypes.map { it.toString() } == parameters
-        }
-    }
+        },
+    )
 
 /** Request.Builder.url(String). */
 internal val requestUrlFingerprint = methodFingerprint(REQUEST_BUILDER, "x", listOf(STRING), REQUEST_BUILDER)
