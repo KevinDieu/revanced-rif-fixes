@@ -12,9 +12,10 @@ import app.revanced.patches.riffixes.shared.EXTENSION
 import app.revanced.patches.riffixes.shared.EXTENSION_PACKAGE
 import app.revanced.patches.riffixes.shared.RIF_COMPATIBILITY
 import app.revanced.patches.riffixes.shared.STRING
-import app.revanced.patches.riffixes.shared.methodFingerprint
+import app.revanced.patches.riffixes.shared.method
 import app.revanced.patches.riffixes.shared.requestUrlFingerprint
 import app.revanced.patches.riffixes.shared.rewriteUrlSmali
+import app.revanced.patches.riffixes.shared.rifSymbols
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 
@@ -22,9 +23,7 @@ private const val IMGUR = "Lcom/andrewshu/android/reddit/imgur"
 private const val ALBUM = "$IMGUR/ImgurV3Album;"
 private const val ITEM = "$IMGUR/ImgurV3ImageItem;"
 
-private val albumParseFingerprint = methodFingerprint(
-    "$IMGUR/ImgurV3Album\$\$JsonObjectMapper;", "parse", listOf("Lw6/h;"), ALBUM,
-)
+private const val ALBUM_MAPPER = "$IMGUR/ImgurV3Album\$\$JsonObjectMapper;"
 
 @Suppress("unused")
 val fixImgurThumbnailsPatch = bytecodePatch(
@@ -32,14 +31,15 @@ val fixImgurThumbnailsPatch = bytecodePatch(
     description = "Fixes imgur album thumbnails failing to load: rif fetched them through its own imgur proxy, " +
         "which no longer exists.",
 ) {
-    compatibleWith(RIF_COMPATIBILITY)
+    compatibleWith(*RIF_COMPATIBILITY)
     extendWith(EXTENSION)
 
     execute {
         requestUrlFingerprint.method.addInstructions(0, rewriteUrlSmali("$EXTENSION_PACKAGE/Imgur;->proxyUrl"))
 
         // imgur's /3/album/<id> often has an empty cover: fall back to the first image when parsing.
-        val parse = albumParseFingerprint.method
+        val symbols = rifSymbols()
+        val parse = method(ALBUM_MAPPER, "parse", listOf(symbols.jsonParser), ALBUM)
         val returns = parse.instructions.withIndex().filter {
             it.value.opcode == Opcode.RETURN_OBJECT && (it.value as OneRegisterInstruction).registerA == 0
         }
@@ -64,7 +64,7 @@ val fixImgurThumbnailsPatch = bytecodePatch(
                 if-eqz v2, :done
                 const/4 v2, 0x0
                 aget-object v1, v1, v2
-                invoke-virtual { v1 }, $ITEM->l()$STRING
+                invoke-virtual { v1 }, $ITEM->${symbols.imageId}()$STRING
                 move-result-object v1
                 invoke-virtual { v0, v1 }, $ALBUM->l($STRING)V
             """,

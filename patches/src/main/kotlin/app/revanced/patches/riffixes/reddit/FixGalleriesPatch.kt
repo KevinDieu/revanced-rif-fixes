@@ -12,7 +12,7 @@ val fixGalleriesPatch = bytecodePatch(
     description = "Fixes Reddit galleries failing to open since Reddit blocked /api/info for rif (Oct 2026). " +
         "rif loads the post from /comments instead.",
 ) {
-    compatibleWith(RIF_COMPATIBILITY)
+    compatibleWith(*RIF_COMPATIBILITY)
     dependsOn(redditResponsesPatch)
 
     execute {

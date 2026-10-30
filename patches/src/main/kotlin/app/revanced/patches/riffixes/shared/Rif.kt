@@ -4,22 +4,109 @@ import app.revanced.patcher.extensions.ExternalLabel
 import app.revanced.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
 import app.revanced.patcher.extensions.InstructionExtensions.instructions
 import app.revanced.patcher.fingerprint
+import app.revanced.patcher.patch.BytecodePatchContext
 import app.revanced.patcher.patch.PatchException
 import app.revanced.patcher.patch.bytecodePatch
 import app.revanced.patcher.util.proxy.mutableTypes.MutableMethod
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 
-/**
- * rif is fun golden platinum, the paid build. The free build is a separate R8 build with different obfuscated
- * names, which these patches don't cover.
- */
+/** rif is fun, the free ad-supported app. */
+internal const val RIF_FREE_PACKAGE = "com.andrewshu.android.reddit"
+
+/** rif is fun golden platinum, the paid app: the same code as a separate R8 build, so most names differ. */
 internal const val RIF_PLATINUM_PACKAGE = "com.andrewshu.android.redditdonation"
 
 /** rif's final release. The patches use its obfuscated names, so they only apply to this version. */
 internal const val RIF_VERSION = "5.6.22"
 
-internal val RIF_COMPATIBILITY = RIF_PLATINUM_PACKAGE to setOf(RIF_VERSION)
+internal val RIF_COMPATIBILITY = arrayOf(
+    RIF_FREE_PACKAGE to setOf(RIF_VERSION),
+    RIF_PLATINUM_PACKAGE to setOf(RIF_VERSION),
+)
+
+/**
+ * Obfuscated names that differ between the free and golden platinum builds of rif 5.6.22. The code at each spot
+ * is the same in both, and every patch still checks the instructions it expects, so a wrong name fails the patch
+ * instead of the app.
+ */
+internal class RifSymbols(
+    val build: String,
+    /** Request task that sends every rif request: `G()` stores the status in `n:I` and reads the body. */
+    val requestTask: String,
+    /** okhttp3.Response method returning its headers, called right before the status is stored. */
+    val responseHeaders: String,
+    /** "Load more comments" task; its constructor's first instruction loads `B:Uri`. */
+    val moreTask: String,
+    /** Comment sort enum (4th constructor parameter of [moreTask]) and its `()String` API name getter. */
+    val sort: String,
+    val sortName: String,
+    /** CommentThing getters: parent id `()String`, child ids `()String[]`. */
+    val commentParent: String,
+    val commentChildren: String,
+    /** Class with the imgur album URL builder, static `x(String, boolean) -> Uri`. */
+    val albumUriBuilder: String,
+    /** LoganSquare JSON parser and its `(String default) -> String` value getter. */
+    val jsonParser: String,
+    val jsonString: String,
+    /** Function type of OkHttp CertificatePinner.check(hostname, cleanedPeerCertificatesFn). */
+    val pinFunction: String,
+    /** Redgifs video loader result class, its callback interface and the callback's "failed" method. */
+    val videoTask: String,
+    val videoCallback: String,
+    val videoFailed: String,
+    /** Fragment.getActivity() (the non-throwing one). */
+    val fragmentActivity: String,
+    /** ImgurV3ImageItem id getter. */
+    val imageId: String,
+)
+
+internal val RIF_BUILDS = listOf(
+    RifSymbols(
+        build = "golden platinum", requestTask = "Li3/c;", responseHeaders = "C", moreTask = "Lq2/b;",
+        sort = "Lo2/q;", sortName = "e", commentParent = "F", commentChildren = "z", albumUriBuilder = "Lh2/c;",
+        jsonParser = "Lw6/h;", jsonString = "c0", pinFunction = "Lpe/a;", videoTask = "Lb2/d\$b;",
+        videoCallback = "Lw1/y;", videoFailed = "H", fragmentActivity = "o1", imageId = "l",
+    ),
+    RifSymbols(
+        build = "free", requestTask = "Lh3/c;", responseHeaders = "E", moreTask = "Lp2/b;",
+        sort = "Ln2/q;", sortName = "d", commentParent = "K", commentChildren = "w", albumUriBuilder = "Lg2/c;",
+        jsonParser = "Lx6/h;", jsonString = "e0", pinFunction = "Lof/a;", videoTask = "La2/d\$b;",
+        videoCallback = "Lv1/y;", videoFailed = "O", fragmentActivity = "z1", imageId = "n",
+    ),
+)
+
+internal const val THINGS = "Lcom/andrewshu/android/reddit/things/objects"
+
+/** The symbol set of the app being patched, told apart by the "load more comments" task's constructor. */
+internal fun BytecodePatchContext.rifSymbols(): RifSymbols {
+    val matching = RIF_BUILDS.filter { symbols ->
+        classes.any { classDef ->
+            classDef.type == symbols.moreTask && classDef.methods.any { method ->
+                method.name == "<init>" && method.parameterTypes.map { it.toString() } == listOf(
+                    "Landroid/app/Activity;", "$THINGS/CommentThing;", "$THINGS/ThreadThing;", symbols.sort,
+                )
+            }
+        }
+    }
+    return matching.singleOrNull()
+        ?: throw PatchException("Not rif is fun 5.6.22 (free or golden platinum): matched ${matching.size} builds")
+}
+
+/** A method by its class and exact signature; throws if it isn't there. */
+internal fun BytecodePatchContext.method(
+    type: String,
+    name: String,
+    parameters: List<String>,
+    returnType: String,
+): MutableMethod {
+    val classDef = classes.firstOrNull { it.type == type } ?: throw PatchException("$type not found")
+    return proxy(classDef).mutableClass.methods.firstOrNull { method ->
+        method.name == name &&
+            method.returnType == returnType &&
+            method.parameterTypes.map { it.toString() } == parameters
+    } ?: throw PatchException("$type->$name(${parameters.joinToString("")})$returnType not found")
+}
 
 internal const val EXTENSION = "extensions/riffixes.rve"
 internal const val EXTENSION_PACKAGE = "Lapp/revanced/extension/riffixes"
@@ -29,7 +116,7 @@ internal const val STRING = "Ljava/lang/String;"
 /** OkHttp's Request.Builder (okhttp3.Request$Builder), which every rif request goes through. */
 internal const val REQUEST_BUILDER = "Lokhttp3/c0\$a;"
 
-/** A method found by its class and exact signature, as obfuscated in golden platinum 5.6.22. */
+/** A method found by its class and exact signature (OkHttp's request builder has the same names in both builds). */
 internal fun methodFingerprint(type: String, name: String, parameters: List<String>, returnType: String) =
     fingerprint {
         custom { method, classDef ->
@@ -57,7 +144,7 @@ internal fun rewriteUrlSmali(hook: String) = """
  * requests). One shared hook: two separate ones in the same method got their branch targets mixed up.
  */
 internal val forceGetPatch = bytecodePatch {
-    compatibleWith(RIF_COMPATIBILITY)
+    compatibleWith(*RIF_COMPATIBILITY)
     extendWith(EXTENSION)
 
     execute {

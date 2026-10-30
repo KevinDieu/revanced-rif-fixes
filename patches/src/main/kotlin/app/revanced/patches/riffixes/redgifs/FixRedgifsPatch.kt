@@ -12,10 +12,11 @@ import app.revanced.patches.riffixes.shared.RIF_COMPATIBILITY
 import app.revanced.patches.riffixes.shared.STRING
 import app.revanced.patches.riffixes.shared.forceGetPatch
 import app.revanced.patches.riffixes.shared.indexOfOnly
-import app.revanced.patches.riffixes.shared.methodFingerprint
+import app.revanced.patches.riffixes.shared.method
 import app.revanced.patches.riffixes.shared.references
 import app.revanced.patches.riffixes.shared.requestUrlFingerprint
 import app.revanced.patches.riffixes.shared.rewriteUrlSmali
+import app.revanced.patches.riffixes.shared.rifSymbols
 import com.android.tools.smali.dexlib2.Opcode
 
 private const val REDGIFS = "$EXTENSION_PACKAGE/Redgifs;"
@@ -23,21 +24,11 @@ private const val RIF_REDGIFS = "Lcom/andrewshu/android/reddit/browser/gfycat/re
 
 // The token reply's JSON mapper: parseField(response, fieldName, parser).
 private const val TOKEN = "$RIF_REDGIFS/RedgifsOAuthClientCredentialsResponseJson;"
-private const val JSON_PARSER = "Lw6/h;"
-private val tokenParseFieldFingerprint = methodFingerprint(
-    "$RIF_REDGIFS/RedgifsOAuthClientCredentialsResponseJson\$\$JsonObjectMapper;",
-    "parseField", listOf(TOKEN, STRING, JSON_PARSER), "V",
-)
+private const val TOKEN_MAPPER = "$RIF_REDGIFS/RedgifsOAuthClientCredentialsResponseJson\$\$JsonObjectMapper;"
 
 // Temporary tokens last about 24 hours; refresh after 23.
 private const val TOKEN_LIFETIME_SECONDS = 82800
 
-// OkHttp's CertificatePinner.check(hostname, cleanedPeerCertificatesFn).
-private val pinCheckFingerprint = methodFingerprint("Lokhttp3/g;", "b", listOf(STRING, "Lpe/a;"), "V")
-
-// The Redgifs video loader's result (b2/d$b.T): null item = failed. Its HTTP status is in redgifs/a.k.
-private const val VIDEO_TASK = "Lb2/d\$b;"
-private val videoResultFingerprint = methodFingerprint(VIDEO_TASK, "T", listOf("$RIF_REDGIFS/RedgifsItem;"), "V")
 private const val FRAGMENT = "Landroidx/fragment/app/Fragment;"
 
 @Suppress("unused")
@@ -46,16 +37,19 @@ val fixRedgifsPatch = bytecodePatch(
     description = "Fixes Redgifs videos failing to load: Redgifs disabled rif's API login, and rif pins " +
         "api.redgifs.com to certificates that have since been replaced. Deleted videos say so and close.",
 ) {
-    compatibleWith(RIF_COMPATIBILITY)
+    compatibleWith(*RIF_COMPATIBILITY)
     extendWith(EXTENSION)
     dependsOn(forceGetPatch)
 
     execute {
+        val symbols = rifSymbols()
+        val parser = symbols.jsonParser
+
         // rif's OAuth client is disabled (401 ClientDisabled): fetch an anonymous temporary token instead.
         requestUrlFingerprint.method.addInstructions(0, rewriteUrlSmali("$REDGIFS->url"))
 
         // The temporary-token reply is {"token": ...} instead of {"access_token": ..., "expires_in": ...}.
-        val parseField = tokenParseFieldFingerprint.method
+        val parseField = method(TOKEN_MAPPER, "parseField", listOf(TOKEN, STRING, parser), "V")
         parseField.addInstructionsWithLabels(
             0,
             """
@@ -64,7 +58,7 @@ val fixRedgifsPatch = bytecodePatch(
                 move-result v0
                 if-eqz v0, :not_token
                 const/4 v0, 0x0
-                invoke-virtual { p3, v0 }, $JSON_PARSER->c0($STRING)$STRING
+                invoke-virtual { p3, v0 }, $parser->${symbols.jsonString}($STRING)$STRING
                 move-result-object p2
                 iput-object p2, p1, $TOKEN->a:$STRING
                 const-wide/32 p2, $TOKEN_LIFETIME_SECONDS
@@ -75,7 +69,8 @@ val fixRedgifsPatch = bytecodePatch(
         )
 
         // Stale certificate pins: skip pinning for api.redgifs.com only. Normal certificate checks remain.
-        val pinCheck = pinCheckFingerprint.method
+        // OkHttp's CertificatePinner.check(hostname, cleanedPeerCertificatesFn).
+        val pinCheck = method("Lokhttp3/g;", "b", listOf(STRING, symbols.pinFunction), "V")
         pinCheck.addInstructionsWithLabels(
             0,
             """
@@ -89,12 +84,15 @@ val fixRedgifsPatch = bytecodePatch(
 
         // Failed load: if Redgifs answered 404, say the video was removed and close the viewer instead of
         // falling back to the browser. p1 is the viewer callback (a Fragment) right before rif's H() call.
-        val result = videoResultFingerprint.method
+        // The Redgifs video loader's result T(item): null item = failed. Its HTTP status is in redgifs/a.k.
+        val videoTask = symbols.videoTask
+        val callback = symbols.videoCallback
+        val result = method(videoTask, "T", listOf("$RIF_REDGIFS/RedgifsItem;"), "V")
         val fallback = result.indexOfOnly("failure callback") {
-            it.opcode == Opcode.INVOKE_INTERFACE && it.references("Lw1/y;->H()V")
+            it.opcode == Opcode.INVOKE_INTERFACE && it.references("$callback->${symbols.videoFailed}()V")
         }
-        if (!result.instructions[fallback - 1].references("$VIDEO_TASK->o:Lw1/y;")) {
-            throw PatchException("$VIDEO_TASK->T: expected the callback to be loaded right before H()")
+        if (!result.instructions[fallback - 1].references("$videoTask->o:$callback")) {
+            throw PatchException("$videoTask->T: expected the callback to be loaded right before its failure call")
         }
         result.addInstructionsWithLabels(
             fallback,
@@ -106,7 +104,7 @@ val fixRedgifsPatch = bytecodePatch(
                 if-eqz v0, :not_removed
                 move-object v0, p1
                 check-cast v0, $FRAGMENT
-                invoke-virtual { v0 }, $FRAGMENT->o1()Landroidx/fragment/app/FragmentActivity;
+                invoke-virtual { v0 }, $FRAGMENT->${symbols.fragmentActivity}()Landroidx/fragment/app/FragmentActivity;
                 move-result-object v0
                 invoke-static { v0 }, $REDGIFS->removed(Landroid/app/Activity;)Z
                 move-result v0
