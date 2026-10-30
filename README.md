@@ -1,7 +1,8 @@
 # revanced-rif-fixes
 
-A small [ReVanced](https://revanced.app) patch bundle for **rif is fun golden platinum 5.6.22**
-(`com.andrewshu.android.redditdonation`), the last release of the discontinued Reddit client.
+A small [ReVanced](https://revanced.app) patch bundle for **rif is fun 5.6.22**, the last release of the
+discontinued Reddit client: both the free app (`com.andrewshu.android.reddit`) and **rif is fun golden platinum**
+(`com.andrewshu.android.redditdonation`). The same bundle and link work for both.
 
 It fixes things that broke after rif was abandoned and that the other rif patches don't cover. Use it
 **alongside** the official ReVanced bundle's **Spoof client** patch and
@@ -17,11 +18,12 @@ It fixes things that broke after rif was abandoned and that the other rif patche
 | **Fix imgur album thumbnails** | Thumbnails for imgur albums: rif fetched them through its own server, which is gone. rif now asks imgur directly, with the key rif already sends. |
 | **Fix imgur title links** | Album links with the title in them (`imgur.com/a/some-title-AbC123`) fail to load. rif now uses only the album id. |
 
-Only golden platinum 5.6.22 is supported. The free version is a separate build with different internals.
+Only version 5.6.22 is supported (free or golden platinum). For the free app, MojiRS's bundle also has a
+**Disable ads** patch.
 
 ## Use with ReVanced Manager
 
-You need your own copy of rif is fun golden platinum 5.6.22. This project doesn't provide APKs.
+You need your own copy of rif is fun 5.6.22 (free or golden platinum). This project doesn't provide APKs.
 
 1. In ReVanced Manager, go to **Settings → Patch bundles → Add (+)** and add this as a remote source:
 
@@ -34,12 +36,12 @@ You need your own copy of rif is fun golden platinum 5.6.22. This project doesn'
    [Releases](../../releases) and add it as a local file.)
 2. Also add the official ReVanced bundle (for **Spoof client**) and, if you want its fixes, MojiRS's bundle:
    `https://raw.githubusercontent.com/MojiRS/revanced-rif-patches/main/bundles/stable.json`
-3. Patch your **original, unpatched** rif 5.6.22 APK (pick it from storage, not an already-patched install),
+3. Patch your **original, unpatched** rif 5.6.22 APK, free or golden platinum (pick it from storage, not an
+   already-patched install),
    selecting **Spoof client**, the patches you want from MojiRS's bundle, and the patches from this one.
 4. Install. If your current rif was patched by the same Manager, it updates in place and keeps your login.
 
-If a patch reports that it couldn't find what it expected, the input APK isn't an untouched 5.6.22 golden
-platinum. Every patch checks the code it changes and stops instead of patching the wrong place.
+If a patch reports that it couldn't find what it expected, the input APK isn't an untouched rif is fun 5.6.22. Every patch checks the code it changes and stops instead of patching the wrong place.
 
 ## Building from source
 
@@ -71,6 +73,9 @@ Notes:
 - The patch code lives in `app.revanced.patches.riffixes` and the extension in `extensions/riffixes`, so
   nothing clashes with other rif bundles loaded beside it.
 - The Java extension (`extensions/riffixes`) holds the logic. The Kotlin patches only hook it into rif.
+- rif is R8-obfuscated, and the free and golden platinum builds are obfuscated separately: same code, different
+  names. The names each patch needs are in `RIF_BUILDS` (`patches/src/main/kotlin/app/revanced/patches/riffixes/shared/Rif.kt`),
+  and the patches work out which app they're patching from its code.
 
 ## Disclaimer
 
