@@ -25,20 +25,26 @@ Only version 5.6.22 is supported (free or golden platinum). For the free app, Mo
 
 You need your own copy of rif is fun 5.6.22 (free or golden platinum). This project doesn't provide APKs.
 
-1. In ReVanced Manager, go to **Settings → Patch bundles → Add (+)** and add this as a remote source:
+1. Open ReVanced Manager, go to **Patches**, tap the **pencil icon** (bottom right), then **Add patches** →
+   **Enter URL**, and paste:
 
    ```
    https://raw.githubusercontent.com/notBrian2/revanced-rif-fixes/main/bundles/stable.json
    ```
 
-   It always points at the newest release, so Manager's auto-update keeps the bundle current. (Manager needs
-   this JSON link; a link to the `.rvp` itself doesn't work. You can also download `patches.rvp` from
+   It always points at the newest release, so Manager keeps the bundle up to date. (Manager needs this JSON
+   link; a link to the `.rvp` itself doesn't work. You can also download `patches.rvp` from
    [Releases](../../releases) and add it as a local file.)
-2. Also add the official ReVanced bundle (for **Spoof client**) and, if you want its fixes, MojiRS's bundle:
-   `https://raw.githubusercontent.com/MojiRS/revanced-rif-patches/main/bundles/stable.json`
+2. Do the same for [MojiRS's rif patches](https://github.com/MojiRS/revanced-rif-patches):
+
+   ```
+   https://raw.githubusercontent.com/MojiRS/revanced-rif-patches/main/bundles/stable.json
+   ```
+
+   The official ReVanced patches (for **Spoof client**) come with Manager already.
 3. Patch your **original, unpatched** rif 5.6.22 APK, free or golden platinum (pick it from storage, not an
-   already-patched install),
-   selecting **Spoof client**, the patches you want from MojiRS's bundle, and the patches from this one.
+   already-patched install), selecting **Spoof client**, the patches you want from MojiRS's bundle, and the
+   patches from this one.
 4. Install. If your current rif was patched by the same Manager, it updates in place and keeps your login.
 
 If a patch reports that it couldn't find what it expected, the input APK isn't an untouched rif is fun 5.6.22. Every patch checks the code it changes and stops instead of patching the wrong place.
