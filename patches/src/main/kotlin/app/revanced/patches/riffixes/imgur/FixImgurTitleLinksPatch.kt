@@ -1,7 +1,7 @@
 package app.revanced.patches.riffixes.imgur
 
-import app.revanced.patcher.extensions.InstructionExtensions.addInstructions
-import app.revanced.patcher.patch.bytecodePatch
+import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.patch.bytecodePatch
 import app.revanced.patches.riffixes.shared.EXTENSION
 import app.revanced.patches.riffixes.shared.EXTENSION_PACKAGE
 import app.revanced.patches.riffixes.shared.RIF_COMPATIBILITY

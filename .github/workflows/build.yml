@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Morphe publishes its Gradle plugin and patcher to GitHub Packages; the workflow token can read them.
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ORG_GRADLE_PROJECT_githubPackagesUsername: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_githubPackagesPassword: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :patches:buildAndroid --no-daemon
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: patches
+          path: patches/build/libs/patches-*.mpp
+
+      # Tag pushes (v1.2.3) publish a release and point patches-bundle.json on main at it.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          bundle="patches/build/libs/patches-${version}.mpp"
+          if [ ! -f "$bundle" ]; then
+            echo "::error::$bundle not found: the tag must match version in gradle.properties"
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" "$bundle" --title "$GITHUB_REF_NAME" --generate-notes
+
+      - name: Update patches-bundle.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+          python3 scripts/update_bundle_json.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add patches-bundle.json
+          git diff --cached --quiet || git commit -m "chore: Point patches-bundle.json at $GITHUB_REF_NAME [skip ci]"
+          git push origin main
