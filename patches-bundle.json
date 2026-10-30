@@ -1,7 +1,7 @@
 {
-  "created_at": "",
-  "description": "",
-  "download_url": "",
+  "created_at": "2026-10-30T13:26:30",
+  "description": "## What's Changed\n* Port to Morphe by @KevinDieu in https://github.com/KevinDieu/revanced-rif-fixes/pull/1\n\n## New Contributors\n* @KevinDieu made their first contribution in https://github.com/KevinDieu/revanced-rif-fixes/pull/1\n\n**Full Changelog**: https://github.com/KevinDieu/revanced-rif-fixes/commits/v2.0.0",
+  "download_url": "https://github.com/KevinDieu/revanced-rif-fixes/releases/download/v2.0.0/patches-2.0.0.mpp",
   "signature_download_url": "",
-  "version": ""
+  "version": "v2.0.0"
 }
